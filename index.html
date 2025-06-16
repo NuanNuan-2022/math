@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Math Tool</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      display: flex;
+    }
+    #toolbar {
+      width: 60px;
+      background: #333;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 10px;
+    }
+    .tool-icon {
+      width: 40px;
+      height: 40px;
+      margin: 10px;
+      background: #555;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+    .tool-icon.active {
+      background: #00bcd4;
+    }
+    #main {
+      flex: 1;
+      position: relative;
+    }
+    #canvas {
+      width: 100%;
+      height: 100vh;
+      display: block;
+      cursor: crosshair;
+    }
+    #calculator {
+      position: absolute;
+      top: 10px;
+      left: 70px;
+      background: #f9f9f9;
+      border: 1px solid #ccc;
+      padding: 10px;
+      display: none;
+      z-index: 10;
+    }
+    #calculator input {
+      width: 100%;
+      font-size: 18px;
+      margin-bottom: 5px;
+      text-align: right;
+    }
+    .calc-buttons {
+      display: grid;
+      grid-template-columns: repeat(5, 50px);
+      gap: 5px;
+    }
+    .calc-buttons button {
+      padding: 10px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div id="toolbar">
+    <div class="tool-icon" id="tool-pencil" title="Pencil">✏️</div>
+    <div class="tool-icon" id="tool-ruler" title="Ruler">📏</div>
+    <div class="tool-icon" id="tool-calc" title="Calculator">🧮</div>
+  </div>
+
+  <div id="main">
+    <canvas id="canvas"></canvas>
+
+    <div id="calculator">
+      <input type="text" id="calc-display" disabled />
+      <div class="calc-buttons">
+        <button onclick="calc('7')">7</button>
+        <button onclick="calc('8')">8</button>
+        <button onclick="calc('9')">9</button>
+        <button onclick="calc('/')">÷</button>
+        <button onclick="calc('sqrt(')">√</button>
+
+        <button onclick="calc('4')">4</button>
+        <button onclick="calc('5')">5</button>
+        <button onclick="calc('6')">6</button>
+        <button onclick="calc('*')">×</button>
+        <button onclick="calc('^')">^</button>
+
+        <button onclick="calc('1')">1</button>
+        <button onclick="calc('2')">2</button>
+        <button onclick="calc('3')">3</button>
+        <button onclick="calc('-')">-</button>
+        <button onclick="calc('log(')">log</button>
+
+        <button onclick="calc('0')">0</button>
+        <button onclick="calc('.')">.</button>
+        <button onclick="calc('+')">+</button>
+        <button onclick="calc('sin(')">sin</button>
+        <button onclick="calc('cos(')">cos</button>
+
+        <button onclick="clearDisplay()">C</button>
+        <button onclick="delChar()">←</button>
+        <button onclick="calc(')')">)</button>
+        <button onclick="calc('(')">(</button>
+        <button onclick="evaluateCalc()">=</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth - 60;
+    canvas.height = window.innerHeight;
+
+    let currentTool = 'pencil';
+    let drawing = false;
+    let startX, startY;
+
+    const toolIcons = {
+      pencil: document.getElementById('tool-pencil'),
+      ruler: document.getElementById('tool-ruler'),
+      calc: document.getElementById('tool-calc')
+    };
+
+    function setActiveTool(tool) {
+      currentTool = tool;
+      Object.entries(toolIcons).forEach(([key, el]) => {
+        el.classList.toggle('active', key === tool);
+      });
+      document.getElementById('calculator').style.display = (tool === 'calc') ? 'block' : 'none';
+    }
+
+    Object.entries(toolIcons).forEach(([tool, el]) => {
+      el.addEventListener('click', () => setActiveTool(tool));
+    });
+
+    canvas.addEventListener('mousedown', (e) => {
+      if (currentTool === 'pencil') {
+        drawing = true;
+        ctx.beginPath();
+        ctx.moveTo(e.offsetX, e.offsetY);
+      } else if (currentTool === 'ruler') {
+        startX = e.offsetX;
+        startY = e.offsetY;
+        drawing = true;
+      }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (drawing && currentTool === 'pencil') {
+        ctx.lineTo(e.offsetX, e.offsetY);
+        ctx.stroke();
+      }
+    });
+
+    canvas.addEventListener('mouseup', (e) => {
+      if (currentTool === 'pencil') {
+        drawing = false;
+      } else if (currentTool === 'ruler' && drawing) {
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(e.offsetX, e.offsetY);
+        ctx.stroke();
+        drawing = false;
+      }
+    });
+
+    // Calculator logic
+    let calcDisplay = document.getElementById('calc-display');
+    let calcExpr = '';
+
+    function calc(val) {
+      if (val === '^') {
+        calcExpr += '**';
+      } else {
+        calcExpr += val;
+      }
+      calcDisplay.value = calcExpr;
+    }
+
+    function clearDisplay() {
+      calcExpr = '';
+      calcDisplay.value = '';
+    }
+
+    function delChar() {
+      calcExpr = calcExpr.slice(0, -1);
+      calcDisplay.value = calcExpr;
+    }
+
+    function evaluateCalc() {
+      try {
+        const result = eval(mathify(calcExpr));
+        calcDisplay.value = result;
+        calcExpr = result.toString();
+      } catch (e) {
+        calcDisplay.value = 'Error';
+        calcExpr = '';
+      }
+    }
+
+    // Adds support for sin, cos, etc.
+    function mathify(expr) {
+      return expr
+        .replace(/sin\(/g, 'Math.sin(')
+        .replace(/cos\(/g, 'Math.cos(')
+        .replace(/log\(/g, 'Math.log10(')
+        .replace(/sqrt\(/g, 'Math.sqrt(');
+    }
+
+    setActiveTool('pencil');
+  </script>
+</body>
+</html>
