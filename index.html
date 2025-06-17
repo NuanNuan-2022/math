@@ -49,8 +49,8 @@
       background: #f9f9f9;
       border: 1px solid #ccc;
       padding: 10px;
-      display: none;
       z-index: 10;
+      display: none;
     }
     #calculator input {
       width: 100%;
@@ -67,6 +67,23 @@
       padding: 10px;
       font-size: 16px;
     }
+    #ruler-overlay {
+      position: absolute;
+      left: 70px;
+      top: 150px;
+      width: 300px;
+      height: 40px;
+      background: repeating-linear-gradient(
+        to right,
+        #ccc,
+        #ccc 1px,
+        transparent 1px,
+        transparent 10px
+      );
+      border: 2px solid black;
+      display: none;
+      z-index: 5;
+    }
   </style>
 </head>
 <body>
@@ -78,6 +95,8 @@
 
   <div id="main">
     <canvas id="canvas"></canvas>
+
+    <div id="ruler-overlay"></div>
 
     <div id="calculator">
       <input type="text" id="calc-display" disabled />
@@ -121,60 +140,68 @@
     canvas.width = window.innerWidth - 60;
     canvas.height = window.innerHeight;
 
-    let currentTool = 'pencil';
+    let pencilEnabled = false;
+    let rulerEnabled = false;
+    let calculatorVisible = false;
     let drawing = false;
-    let startX, startY;
 
-    const toolIcons = {
-      pencil: document.getElementById('tool-pencil'),
-      ruler: document.getElementById('tool-ruler'),
-      calc: document.getElementById('tool-calc')
-    };
+    const rulerOverlay = document.getElementById('ruler-overlay');
 
-    function setActiveTool(tool) {
-      currentTool = tool;
-      Object.entries(toolIcons).forEach(([key, el]) => {
-        el.classList.toggle('active', key === tool);
-      });
-      document.getElementById('calculator').style.display = (tool === 'calc') ? 'block' : 'none';
+    function toggleTool(tool) {
+      if (tool === 'pencil') {
+        pencilEnabled = !pencilEnabled;
+        toolPencil.classList.toggle('active', pencilEnabled);
+      } else if (tool === 'ruler') {
+        rulerEnabled = !rulerEnabled;
+        rulerOverlay.style.display = rulerEnabled ? 'block' : 'none';
+        toolRuler.classList.toggle('active', rulerEnabled);
+      } else if (tool === 'calc') {
+        calculatorVisible = !calculatorVisible;
+        calculator.style.display = calculatorVisible ? 'block' : 'none';
+        toolCalc.classList.toggle('active', calculatorVisible);
+      }
     }
 
-    Object.entries(toolIcons).forEach(([tool, el]) => {
-      el.addEventListener('click', () => setActiveTool(tool));
-    });
+    const toolPencil = document.getElementById('tool-pencil');
+    const toolRuler = document.getElementById('tool-ruler');
+    const toolCalc = document.getElementById('tool-calc');
+    const calculator = document.getElementById('calculator');
+
+    toolPencil.onclick = () => toggleTool('pencil');
+    toolRuler.onclick = () => toggleTool('ruler');
+    toolCalc.onclick = () => toggleTool('calc');
+
+    function isOnRuler(x, y) {
+      const rect = rulerOverlay.getBoundingClientRect();
+      return (
+        x >= rect.left &&
+        x <= rect.right &&
+        y >= rect.top &&
+        y <= rect.bottom
+      );
+    }
 
     canvas.addEventListener('mousedown', (e) => {
-      if (currentTool === 'pencil') {
-        drawing = true;
-        ctx.beginPath();
-        ctx.moveTo(e.offsetX, e.offsetY);
-      } else if (currentTool === 'ruler') {
-        startX = e.offsetX;
-        startY = e.offsetY;
-        drawing = true;
-      }
+      if (!pencilEnabled) return;
+      drawing = true;
+      ctx.beginPath();
+      ctx.moveTo(e.offsetX, e.offsetY);
     });
 
     canvas.addEventListener('mousemove', (e) => {
-      if (drawing && currentTool === 'pencil') {
+      if (drawing && pencilEnabled) {
         ctx.lineTo(e.offsetX, e.offsetY);
+        ctx.strokeStyle = isOnRuler(e.clientX, e.clientY) ? 'red' : 'black';
+        ctx.lineWidth = isOnRuler(e.clientX, e.clientY) ? 2 : 1;
         ctx.stroke();
       }
     });
 
-    canvas.addEventListener('mouseup', (e) => {
-      if (currentTool === 'pencil') {
-        drawing = false;
-      } else if (currentTool === 'ruler' && drawing) {
-        ctx.beginPath();
-        ctx.moveTo(startX, startY);
-        ctx.lineTo(e.offsetX, e.offsetY);
-        ctx.stroke();
-        drawing = false;
-      }
+    canvas.addEventListener('mouseup', () => {
+      drawing = false;
     });
 
-    // Calculator logic
+    // Calculator Logic
     let calcDisplay = document.getElementById('calc-display');
     let calcExpr = '';
 
@@ -208,7 +235,6 @@
       }
     }
 
-    // Adds support for sin, cos, etc.
     function mathify(expr) {
       return expr
         .replace(/sin\(/g, 'Math.sin(')
@@ -216,8 +242,6 @@
         .replace(/log\(/g, 'Math.log10(')
         .replace(/sqrt\(/g, 'Math.sqrt(');
     }
-
-    setActiveTool('pencil');
   </script>
 </body>
 </html>
